@@ -5,3 +5,4 @@
 *.d
 node_modules/
 .tmp/
+vulnerability.md

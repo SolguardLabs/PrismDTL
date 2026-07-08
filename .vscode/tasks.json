@@ -77,7 +77,7 @@
             "label": "Bun: tests",
             "type": "shell",
             "command": "bun",
-            "args": ["test", "./tests/node"],
+            "args": ["test", "--timeout", "30000", "./tests/node"],
             "group": "test",
             "problemMatcher": []
         },

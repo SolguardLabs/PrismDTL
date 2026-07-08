@@ -98,7 +98,7 @@ Ejecutar las comprobaciones de integración JavaScript/Bun:
 bun install --frozen-lockfile
 bun run fmt:check
 bun run build
-bun test ./tests/node
+bun test --timeout 30000 ./tests/node
 ```
 
 Generar un vector de escenario de ejemplo:

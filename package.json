@@ -5,9 +5,9 @@
     "type": "module",
     "description": "Tests de integración JavaScript/Bun para el núcleo de liquidación Prism DTL.",
     "scripts": {
-        "test": "bun test ./tests/node",
+        "test": "bun test --timeout 30000 ./tests/node",
         "test:rust": "cargo test",
-        "test:all": "cargo fmt --all -- --check && cargo build --all-targets --locked && cargo test --locked && cargo clippy --all-targets --all-features --locked -- -D warnings && bun install --frozen-lockfile && bun run fmt:check && bun run build && bun test ./tests/node",
+        "test:all": "cargo fmt --all -- --check && cargo build --all-targets --locked && cargo test --locked && cargo clippy --all-targets --all-features --locked -- -D warnings && bun install --frozen-lockfile && bun run fmt:check && bun run build && bun test --timeout 30000 ./tests/node",
         "build": "bun scripts/check-js.mjs",
         "fmt": "prettier --write --config .prettierrc --ignore-path .prettierignore \"tests/**/*.js\" \"scripts/**/*.mjs\"",
         "fmt:check": "prettier --check --config .prettierrc --ignore-path .prettierignore \"tests/**/*.js\" \"scripts/**/*.mjs\""

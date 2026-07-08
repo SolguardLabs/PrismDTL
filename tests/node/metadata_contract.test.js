@@ -8,10 +8,10 @@ test("package expone scripts de test Bun desde el directorio tests", () => {
     assert.equal(pkg.name, "prism-dtl");
     assert.equal(pkg.private, true);
     assert.equal(pkg.type, "module");
-    assert.equal(pkg.scripts.test, "bun test ./tests/node");
+    assert.equal(pkg.scripts.test, "bun test --timeout 30000 ./tests/node");
     assert.match(pkg.scripts["test:all"], /cargo test/u);
     assert.match(pkg.scripts["test:all"], /cargo clippy/u);
-    assert.match(pkg.scripts["test:all"], /bun test \.\/tests\/node/u);
+    assert.match(pkg.scripts["test:all"], /bun test --timeout 30000 \.\/tests\/node/u);
 });
 
 test("package mantiene las dependencias acotadas a tooling de desarrollo", () => {

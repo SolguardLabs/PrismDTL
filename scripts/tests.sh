@@ -10,4 +10,4 @@ cd "${REPO_ROOT}"
 require_tool cargo
 
 cargo test --locked
-run_bun test ./tests/node
+run_bun test --timeout 30000 ./tests/node

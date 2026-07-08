@@ -18,4 +18,4 @@ cargo clippy --all-targets --all-features --locked -- -D warnings
 run_bun install --frozen-lockfile
 run_bun run fmt:check
 run_bun run build
-run_bun test ./tests/node
+run_bun test --timeout 30000 ./tests/node

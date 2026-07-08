@@ -1,0 +1,115 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CI: todas las comprobaciones",
+            "type": "shell",
+            "command": "bun",
+            "args": ["run", "test:all"],
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Rust: comprobar formato",
+            "type": "shell",
+            "command": "cargo",
+            "args": ["fmt", "--all", "--", "--check"],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Rust: compilar",
+            "type": "shell",
+            "command": "cargo",
+            "args": ["build", "--all-targets", "--locked"],
+            "group": "build",
+            "problemMatcher": ["$rustc"]
+        },
+        {
+            "label": "Rust: tests",
+            "type": "shell",
+            "command": "cargo",
+            "args": ["test", "--locked"],
+            "group": "test",
+            "problemMatcher": ["$rustc"]
+        },
+        {
+            "label": "Rust: clippy",
+            "type": "shell",
+            "command": "cargo",
+            "args": [
+                "clippy",
+                "--all-targets",
+                "--all-features",
+                "--locked",
+                "--",
+                "-D",
+                "warnings"
+            ],
+            "group": "build",
+            "problemMatcher": ["$rustc"]
+        },
+        {
+            "label": "Bun: instalar",
+            "type": "shell",
+            "command": "bun",
+            "args": ["install", "--frozen-lockfile"],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Bun: comprobar formato",
+            "type": "shell",
+            "command": "bun",
+            "args": ["run", "fmt:check"],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Bun: validar",
+            "type": "shell",
+            "command": "bun",
+            "args": ["run", "build"],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Bun: tests",
+            "type": "shell",
+            "command": "bun",
+            "args": ["test", "./tests/node"],
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Escenario: liberacion directa",
+            "type": "shell",
+            "command": "cargo",
+            "args": [
+                "run",
+                "--quiet",
+                "--example",
+                "scenario_vectors",
+                "--",
+                "direct-release"
+            ],
+            "group": "test",
+            "problemMatcher": ["$rustc"]
+        },
+        {
+            "label": "Escenario: liberacion enrutada",
+            "type": "shell",
+            "command": "cargo",
+            "args": [
+                "run",
+                "--quiet",
+                "--example",
+                "scenario_vectors",
+                "--",
+                "routed-release"
+            ],
+            "group": "test",
+            "problemMatcher": ["$rustc"]
+        }
+    ]
+}

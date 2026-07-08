@@ -1,0 +1,33 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Ejemplo Rust: direct-release",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": ["build", "--example", "scenario_vectors"],
+                "filter": {
+                    "name": "scenario_vectors",
+                    "kind": "example"
+                }
+            },
+            "args": ["direct-release"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Ejemplo Rust: routed-release",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": ["build", "--example", "scenario_vectors"],
+                "filter": {
+                    "name": "scenario_vectors",
+                    "kind": "example"
+                }
+            },
+            "args": ["routed-release"],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

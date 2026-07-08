@@ -60,8 +60,8 @@ conservación son correctas.
 src/                 Núcleo del protocolo
 examples/            Generador de vectores de escenario usado por los tests
 tests/escrow_flow.rs Tests de integración en Rust
-tests/node/          Tests Node.js de contrato de wire y escenarios
-tests/helpers/       Helpers compartidos para los tests Node.js
+tests/node/          Tests JavaScript/Bun de contrato de wire y escenarios
+tests/helpers/       Helpers compartidos para los tests JavaScript
 scripts/             CI local y comprobaciones JavaScript
 .github/             CI de GitHub Actions y configuración de Dependabot
 ```
@@ -71,7 +71,7 @@ scripts/             CI local y comprobaciones JavaScript
 Ejecutar la suite completa de verificación local:
 
 ```powershell
-npm run test:all
+bun run test:all
 ```
 
 Ejecutar el script corto desde Bash:
@@ -80,9 +80,8 @@ Ejecutar el script corto desde Bash:
 bash scripts/tests.sh
 ```
 
-Este script ejecuta los tests Rust y añade los tests Node.js cuando `npm` está
-disponible desde el entorno Bash. En Windows, la validación completa recomendada
-es `npm run test:all`.
+Este script ejecuta los tests Rust y los tests JavaScript mediante Bun. En
+Windows, la validación completa recomendada es `bun run test:all`.
 
 Ejecutar directamente las comprobaciones Rust:
 
@@ -93,13 +92,13 @@ cargo test --locked
 cargo clippy --all-targets --all-features --locked -- -D warnings
 ```
 
-Ejecutar las comprobaciones de integración Node.js:
+Ejecutar las comprobaciones de integración JavaScript/Bun:
 
 ```powershell
-npm ci
-npm run fmt:check
-npm run build
-npm test
+bun install --frozen-lockfile
+bun run fmt:check
+bun run build
+bun test ./tests/node
 ```
 
 Generar un vector de escenario de ejemplo:
@@ -111,10 +110,10 @@ cargo run --quiet --example scenario_vectors -- routed-release
 
 ## CI
 
-GitHub Actions ejecuta jobs separados para Rust y Node:
+GitHub Actions ejecuta jobs separados para Rust y Bun:
 
 - Formato, compilación, tests y clippy para Rust.
-- Instalación de dependencias Node, comprobación de formato, validación de
-  sintaxis JavaScript y tests de integración.
+- Instalación de dependencias Bun, comprobación de formato, validación de
+  sintaxis JavaScript y tests de integración con Bun.
 
-Dependabot está configurado para crates Rust, paquetes npm y GitHub Actions.
+Dependabot está configurado para crates Rust, paquetes Bun y GitHub Actions.

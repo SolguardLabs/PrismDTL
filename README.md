@@ -1,5 +1,7 @@
 # Prism DTL
 
+![banner](./assets/banner.png)
+
 Prism DTL es un núcleo de liquidación en Rust para un libro de transacciones
 distribuido con custodia de valor. Modela movimientos firmados mediante
 registro de cuentas, aperturas de escrow, liberaciones autorizadas por el

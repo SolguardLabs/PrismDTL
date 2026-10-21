@@ -291,10 +291,7 @@ fn route_value_limit() -> PrismResult<Value> {
     let mut env = Environment::new(1_000)?;
     let terms = routed_terms(&env, 100, 80, 30, "route:value-limit")?;
     let open = SignedEscrowOpen::sign(terms, &env.depositor)?;
-    env.ledger.open_escrow(&open)?;
-    let release = signed_release(&env, terms.escrow_id, terms.terms_hash()?, env.network_id)?;
-
-    let result = env.ledger.release_escrow(&release);
+    let result = env.ledger.open_escrow(&open);
     rejected_payload("route-value-limit", &env, result)
 }
 

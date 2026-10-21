@@ -45,7 +45,8 @@ test("una liberación repetida conserva los balances de la primera liberación",
 test("los pagos de ruta no pueden superar el importe del escrow", () => {
     const payload = scenario("route-value-limit");
     assertRejected(payload, "route-value-limit", "Policy");
-    assert.equal(payload.balances.depositor, 900);
+    assert.equal(payload.balances.depositor, 1_000);
+    assert.equal(payload.nonces.depositor, 0);
     assert.equal(payload.nonces.beneficiary_release, 0);
     assertConserved(payload);
 });

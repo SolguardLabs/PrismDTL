@@ -18,6 +18,15 @@ pub struct SettlementPath {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SettlementQuote {
+    pub gross_amount: Amount,
+    pub beneficiary_amount: Amount,
+    pub operator_fee: Amount,
+    pub rebate_amount: Amount,
+    pub total_charges: Amount,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EscrowTerms {
     pub network_id: u32,
     pub escrow_id: EscrowId,
@@ -86,6 +95,23 @@ impl SettlementPath {
             rebate_amount: Amount::zero(),
             routing_epoch: 0,
         }
+    }
+
+    pub fn quote(self, gross_amount: Amount) -> PrismResult<SettlementQuote> {
+        let total_charges = self.operator_fee.checked_add(self.rebate_amount)?;
+        if total_charges > gross_amount {
+            return Err(PrismError::Policy(
+                "settlement path exceeds escrow value".to_owned(),
+            ));
+        }
+
+        Ok(SettlementQuote {
+            gross_amount,
+            beneficiary_amount: gross_amount.checked_sub(total_charges)?,
+            operator_fee: self.operator_fee,
+            rebate_amount: self.rebate_amount,
+            total_charges,
+        })
     }
 }
 

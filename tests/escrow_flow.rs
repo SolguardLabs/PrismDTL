@@ -289,3 +289,87 @@ fn escrow_open_checks_depositor_nonce() {
         })
     ));
 }
+
+#[test]
+fn settlement_quote_reconciles_all_outputs() {
+    let fx = settlement_environment(1_000);
+    let terms = routed_terms(&fx, 600, 10, 40);
+    let quote = terms.settlement_path.quote(terms.amount).unwrap();
+
+    assert_eq!(quote.beneficiary_amount.units(), 550);
+    assert_eq!(quote.operator_fee.units(), 10);
+    assert_eq!(quote.rebate_amount.units(), 40);
+    assert_eq!(quote.total_charges.units(), 50);
+    assert_eq!(
+        quote.beneficiary_amount.units() + quote.total_charges.units(),
+        600
+    );
+}
+
+#[test]
+fn overbudget_route_is_rejected_before_escrow_is_committed() {
+    let mut fx = settlement_environment(1_000);
+    let mut terms = open_terms(&fx, 250, 10);
+    terms.settlement_path.operator_fee = Amount::new(251).unwrap();
+    let open = SignedEscrowOpen::sign(terms, &fx.depositor).unwrap();
+    let before = fx.ledger.state_digest().unwrap();
+
+    assert!(matches!(
+        fx.ledger.open_escrow(&open),
+        Err(PrismError::Policy(_))
+    ));
+    assert_eq!(fx.ledger.state_digest().unwrap(), before);
+    assert_eq!(
+        fx.ledger
+            .next_nonce(fx.depositor.public_identity().account)
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn supply_snapshot_tracks_locked_and_liquid_value() {
+    let mut fx = settlement_environment(1_000);
+    let open = SignedEscrowOpen::sign(open_terms(&fx, 250, 10), &fx.depositor).unwrap();
+
+    let before = fx.ledger.supply_snapshot().unwrap();
+    assert_eq!(
+        (
+            before.liquid.units(),
+            before.locked.units(),
+            before.total.units()
+        ),
+        (1_000, 0, 1_000)
+    );
+    fx.ledger.open_escrow(&open).unwrap();
+    let locked = fx.ledger.supply_snapshot().unwrap();
+    assert_eq!(
+        (
+            locked.liquid.units(),
+            locked.locked.units(),
+            locked.open_escrows
+        ),
+        (750, 250, 1)
+    );
+
+    let release = EscrowRelease::new(
+        fx.network_id,
+        open.terms.escrow_id,
+        fx.beneficiary.public_identity().account,
+        0,
+        open.terms.terms_hash().unwrap(),
+    );
+    fx.ledger
+        .release_escrow(&SignedEscrowRelease::sign(release, &fx.beneficiary).unwrap())
+        .unwrap();
+    let settled = fx.ledger.supply_snapshot().unwrap();
+    assert_eq!(
+        (
+            settled.liquid.units(),
+            settled.locked.units(),
+            settled.released_escrows
+        ),
+        (1_000, 0, 1)
+    );
+    fx.ledger.verify_conservation().unwrap();
+}

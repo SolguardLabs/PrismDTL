@@ -5,6 +5,9 @@ on:
     branches:
       - main
       - master
+      - production
+    tags:
+      - v*
   pull_request:
   workflow_dispatch:
 

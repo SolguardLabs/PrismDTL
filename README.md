@@ -17,7 +17,7 @@ aritmética comprobada y reconciliación de suministro.
 ## Resumen del protocolo
 
 Prism registra un único activo nativo entre cuentas registradas y estados de
-escrow. Un depositante abre un escrow firmando los términos canónicos. El ledger
+escrow. Un depositante abre un escrow con una instrucción firmada. El ledger
 debita al depositante, registra el valor bloqueado y avanza el nonce del
 depositante.
 
@@ -43,6 +43,47 @@ conservación son correctas.
 - Los importes usan unidades enteras acotadas con aritmética comprobada.
 - El ledger reconcilia balances líquidos más valor de escrow no liberado contra
   el suministro total tras cada transición confirmada.
+- La apertura valida la distribución económica antes de inmovilizar saldo.
+- Las vistas `SettlementQuote` y `SupplySnapshot` exponen importes y estados
+  para integración, conciliación y observabilidad.
+
+## Flujo de valor
+
+```mermaid
+flowchart LR
+    D[Depositante] -->|apertura: 600 unidades| E[Escrow bloqueado]
+    E -->|liberación| Q{Ruta de liquidación}
+    Q -->|550| B[Beneficiario]
+    Q -->|10| O[Operador]
+    Q -->|40| I[Integrador]
+    L[Ledger] -.->|suministro = líquido + bloqueado| E
+    L -.-> B
+    L -.-> O
+    L -.-> I
+```
+
+Para una ruta con 600 unidades brutas, comisión de operador de 10 y rebate de
+40, `SettlementPath::quote` calcula 50 de cargos y 550 netas para el
+beneficiario. La suma de las salidas siempre debe igualar las 600 unidades
+inmovilizadas. El modelo utiliza enteros; las aplicaciones que muestran
+decimales deben fijar la escala fuera del crate.
+
+## Ciclo de autorización y estado
+
+```mermaid
+sequenceDiagram
+    participant D as Depositante
+    participant L as Ledger
+    participant B as Beneficiario
+    D->>L: SignedEscrowOpen + nonce
+    L->>L: Verificar firma, red, activo, saldo y ruta
+    L->>L: Debitar saldo y bloquear importe
+    L-->>D: ID de transacción y digest
+    B->>L: SignedEscrowRelease + hash observado
+    L->>L: Verificar estado, nonce y términos observados
+    L->>L: Aplicar quote y reconciliar suministro
+    L-->>B: Liquidación y digest actualizado
+```
 
 ## Arquitectura
 
@@ -55,6 +96,22 @@ conservación son correctas.
 - `ledger`: estado de cuenta, estado de escrow, diario de liquidación y
   reconciliación.
 - `error`: superficie de errores tipados del protocolo.
+
+Las decisiones de secuenciación, persistencia y custodia de claves pertenecen
+al servicio que integra el crate; no están implementadas por esta biblioteca.
+
+## Documentación
+
+- [Arquitectura y estados](docs/arquitectura.md): contratos entre módulos y
+  transiciones del ledger.
+- [Modelo económico](docs/modelo-economico.md): distribución, conservación y
+  ejemplos numéricos.
+- [Integración](docs/integracion.md): configuración, ciclo de firma y manejo
+  de errores.
+- [Operación y observabilidad](docs/operacion.md): métricas, reconciliación y
+  procedimiento ante divergencias.
+- [Seguridad operativa](docs/seguridad-operativa.md): fronteras de confianza,
+  controles y respuesta a incidentes.
 
 ## Estructura del repositorio
 

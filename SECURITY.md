@@ -26,6 +26,19 @@ son correctas.
   proporcionados por servicios de nivel superior.
 - Este crate asume un único activo nativo para la instancia del ledger.
 
+```mermaid
+flowchart LR
+    C[Cliente firmante] -->|envelope| A[Admisión de servicio]
+    A -->|datos no confiables| L[PrismLedger]
+    L --> V{Validaciones}
+    V -->|rechazo| R[Error tipado + auditoría]
+    V -->|aceptación| S[Estado candidato]
+    S -->|conservación correcta| P[Estado confirmado]
+    S -->|invariante fallida| R
+    K[Custodia de claves] -.-> C
+    DB[Persistencia y consenso externos] -.-> P
+```
+
 ## Controles aplicados
 
 - Firmas Ed25519 sobre payloads separados por dominio.
@@ -42,6 +55,10 @@ son correctas.
 - Comprobaciones de existencia de cuentas para beneficiarios, operadores y
   destinatarios de rebate.
 - Comprobaciones de conservación tras aperturas y liberaciones confirmadas.
+- Presupuesto de ruta validado durante la apertura mediante
+  `SettlementPath::quote` y nuevamente al liquidar.
+- Snapshot de suministro consultable sin mutar estado para conciliación
+  externa.
 
 ## Invariantes del protocolo
 
@@ -53,6 +70,8 @@ son correctas.
 - Las comisiones de operador más rebates no deben superar el importe del escrow.
 - Los balances líquidos más el valor de escrow no liberado deben igualar el
   suministro total.
+- `beneficiary_amount + operator_fee + rebate_amount = gross_amount` para
+  cada quote aceptada.
 - Los digests de estado deben cambiar cuando cambia el estado confirmado del
   ledger.
 
@@ -69,6 +88,10 @@ Los despliegues construidos sobre Prism DTL deberían añadir:
 - Métricas en runtime para suministro total, valor bloqueado, fallos de
   liberación e intentos repetidos.
 - Procedimientos de backup y restauración para snapshots del ledger.
+
+No se debe usar la conservación de suministro como sustituto de una revisión
+de destinatarios o de la política comercial de una ruta. Es una propiedad
+contable, no una aprobación de contraparte.
 
 ## Higiene de dependencias
 

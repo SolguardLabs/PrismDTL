@@ -1,0 +1,38 @@
+name: release-integrity
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refs-and-documentation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify production refs and documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force origin main production --tags
+          main=$(git rev-parse refs/remotes/origin/main)
+          production=$(git rev-parse refs/remotes/origin/production)
+          tag=$(git rev-parse 'refs/tags/v1.0.0^{}')
+          test "$main" = "$production"
+          test "$main" = "$tag"
+          test "$(git cat-file -t refs/tags/v1.0.0)" = tag
+          test -s assets/banner.png
+          test -s README.md
+          test -s SECURITY.md
+          for file in arquitectura modelo-economico integracion operacion seguridad-operativa; do
+            test -s "docs/$file.md"
+          done
+          if git grep -n -i -E 'CTF|laboratorio|vulnerab(ilidad|ility)|exploit|flag' -- README.md SECURITY.md docs; then
+            echo 'Public documentation contains restricted terminology' >&2
+            exit 1
+          fi

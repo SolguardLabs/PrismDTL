@@ -46,6 +46,15 @@ pub struct JournalEntry {
     pub op: JournalOp,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SupplySnapshot {
+    pub liquid: Amount,
+    pub locked: Amount,
+    pub total: Amount,
+    pub open_escrows: usize,
+    pub released_escrows: usize,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PrismLedger {
     network_id: u32,
@@ -138,6 +147,33 @@ impl PrismLedger {
         self.total_supply
     }
 
+    pub fn supply_snapshot(&self) -> PrismResult<SupplySnapshot> {
+        let mut liquid = Amount::zero();
+        for account in self.accounts.values() {
+            liquid = liquid.checked_add(account.balance)?;
+        }
+
+        let mut locked = Amount::zero();
+        let mut open_escrows = 0usize;
+        let mut released_escrows = 0usize;
+        for escrow in self.escrows.values() {
+            if escrow.released {
+                released_escrows += 1;
+            } else {
+                locked = locked.checked_add(escrow.terms.amount)?;
+                open_escrows += 1;
+            }
+        }
+
+        Ok(SupplySnapshot {
+            liquid,
+            locked,
+            total: self.total_supply,
+            open_escrows,
+            released_escrows,
+        })
+    }
+
     pub fn escrow(&self, escrow_id: EscrowId) -> PrismResult<&EscrowState> {
         self.escrows
             .get(&escrow_id)
@@ -198,6 +234,7 @@ impl PrismLedger {
         if let Some(rebate_recipient) = terms.settlement_path.rebate_recipient {
             self.ensure_account(rebate_recipient)?;
         }
+        terms.settlement_path.quote(terms.amount)?;
         let depositor_state = self.ensure_account(terms.depositor)?;
         if depositor_state.next_nonce != terms.depositor_nonce {
             return Err(PrismError::NonceMismatch {
@@ -295,21 +332,12 @@ impl PrismLedger {
         }
 
         let path = escrow.terms.settlement_path;
-        let operator_fee = path.operator_fee;
-        let rebate_amount = path.rebate_amount;
-        let payable_total = operator_fee.checked_add(rebate_amount)?;
-        if payable_total > escrow.terms.amount {
-            return Err(PrismError::Policy(
-                "settlement path exceeds escrow value".to_owned(),
-            ));
-        }
-
-        let beneficiary_amount = escrow.terms.amount.checked_sub(payable_total)?;
+        let quote = path.quote(escrow.terms.amount)?;
         let rebate_recipient = path.rebate_recipient.unwrap_or(escrow.terms.beneficiary);
 
-        self.credit(escrow.terms.beneficiary, beneficiary_amount)?;
-        self.credit(path.operator, operator_fee)?;
-        self.credit(rebate_recipient, rebate_amount)?;
+        self.credit(escrow.terms.beneficiary, quote.beneficiary_amount)?;
+        self.credit(path.operator, quote.operator_fee)?;
+        self.credit(rebate_recipient, quote.rebate_amount)?;
 
         self.escrows
             .get_mut(&escrow.id)

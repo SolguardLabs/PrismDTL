@@ -2,11 +2,14 @@
 
 ![banner](./assets/banner.png)
 
+Versión vigente: `Production 2.0.0` (`v2.0.0`).
+
 Prism DTL es un núcleo de liquidación en Rust para un libro de transacciones
 distribuido con custodia de valor. Modela movimientos firmados mediante
 registro de cuentas, aperturas de escrow, liberaciones autorizadas por el
 beneficiario, enrutamiento por operador, rebates de integrador y compromisos de
-estado deterministas.
+estado deterministas. La versión 2 incorpora programas de rebate de ruta
+respaldados por bonos del operador.
 
 El crate está diseñado como un núcleo de protocolo compacto: lo bastante pequeño
 para revisarse de extremo a extremo, pero organizado con los límites que se
@@ -38,14 +41,18 @@ conservación son correctas.
   Blake3 separados por dominio.
 - Las aperturas de escrow requieren la firma del depositante.
 - Las liberaciones de escrow requieren la firma del beneficiario.
+- La firma de apertura cubre la ruta económica completa; la firma de
+  liberación cubre el hash de términos observados.
 - Los nonces del depositante impiden repetir instrucciones de apertura.
 - Los nonces de liberación impiden repetir instrucciones de liberación.
 - Los importes usan unidades enteras acotadas con aritmética comprobada.
-- El ledger reconcilia balances líquidos más valor de escrow no liberado contra
-  el suministro total tras cada transición confirmada.
+- El ledger reconcilia balances líquidos, escrows abiertos y bonos de operador
+  contra el suministro total tras cada transición confirmada.
 - La apertura valida la distribución económica antes de inmovilizar saldo.
 - Las vistas `SettlementQuote` y `SupplySnapshot` exponen importes y estados
   para integración, conciliación y observabilidad.
+- `BondedRebateQuote` valora un incentivo adicional pagado por el bono del
+  operador, separado de los cargos que se distribuyen desde el escrow.
 
 ## Flujo de valor
 
@@ -67,6 +74,26 @@ Para una ruta con 600 unidades brutas, comisión de operador de 10 y rebate de
 beneficiario. La suma de las salidas siempre debe igualar las 600 unidades
 inmovilizadas. El modelo utiliza enteros; las aplicaciones que muestran
 decimales deben fijar la escala fuera del crate.
+
+### Programa de rebate respaldado
+
+Un operador puede inmovilizar saldo como bono y activar una política por
+`routing_epoch`. El motor calcula un incentivo de profundidad con una curva
+cuadrática en puntos básicos y lo acredita al destinatario del rebate al
+liberar el escrow. Ese pago no reduce el principal del escrow: sale del bono
+del operador y aparece por separado en `SupplySnapshot.bonded`. Por ejemplo,
+con límite de rebate de 400, importe de 1.000 y profundidad de ruta cotizada
+de 1.500, el ratio es 6.000 bps y el incentivo resulta
+`floor(400 × 6.000² / 10.000²) = 144` unidades.
+
+```mermaid
+flowchart LR
+    D[Depositante] -->|1.000| E[Escrow]
+    O[Operador] -->|financiación| C[Bono inmovilizado]
+    E -->|1.000| B[Beneficiario]
+    C -->|144| R[Destinatario del rebate]
+    S[Snapshot] -->|líquido + escrows + bonos| T[Suministro]
+```
 
 ## Ciclo de autorización y estado
 
@@ -95,6 +122,7 @@ sequenceDiagram
   envelopes firmados.
 - `ledger`: estado de cuenta, estado de escrow, diario de liquidación y
   reconciliación.
+- `rebate`: cotización entera de la curva de incentivos respaldados.
 - `error`: superficie de errores tipados del protocolo.
 
 Las decisiones de secuenciación, persistencia y custodia de claves pertenecen
@@ -119,6 +147,7 @@ al servicio que integra el crate; no están implementadas por esta biblioteca.
 src/                 Núcleo del protocolo
 examples/            Generador de vectores de escenario usado por los tests
 tests/escrow_flow.rs Tests de integración en Rust
+tests/bonded_rebate.rs Conciliación de bonos e incentivos
 tests/node/          Tests JavaScript/Bun de contrato de wire y escenarios
 tests/helpers/       Helpers compartidos para los tests JavaScript
 scripts/             CI local y comprobaciones JavaScript

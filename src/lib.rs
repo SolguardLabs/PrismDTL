@@ -12,6 +12,7 @@ pub mod error;
 pub mod escrow;
 pub mod ids;
 pub mod ledger;
+pub mod rebate;
 
 pub use amount::Amount;
 pub use crypto::{KeyPair, PublicIdentity, PublicKeyBytes, SignatureBytes};
@@ -22,3 +23,4 @@ pub use escrow::{
 };
 pub use ids::{AccountId, AssetId, Digest, EscrowId, TxId};
 pub use ledger::{AccountState, EscrowState, PrismLedger, SupplySnapshot};
+pub use rebate::{BondedRebatePolicy, BondedRebateQuote, quote_bonded_rebate};

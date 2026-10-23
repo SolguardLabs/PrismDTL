@@ -5,8 +5,8 @@ use crate::{
     SignatureBytes, TxId, crypto::verify,
 };
 
-pub const OPEN_DOMAIN: &str = "escrow-open-v2";
-pub const RELEASE_DOMAIN: &str = "escrow-release-v2";
+pub const OPEN_DOMAIN: &str = "escrow-open-v3";
+pub const RELEASE_DOMAIN: &str = "escrow-release-v3";
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SettlementPath {
@@ -51,6 +51,7 @@ struct EscrowAuthorizationView {
     depositor_nonce: u64,
     expires_at_epoch: u64,
     memo_hash: Digest,
+    settlement_path: SettlementPath,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -68,6 +69,7 @@ struct ReleaseAuthorizationView {
     escrow_id: EscrowId,
     beneficiary: AccountId,
     release_nonce: u64,
+    observed_terms_hash: Digest,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -166,6 +168,7 @@ impl EscrowTerms {
             depositor_nonce: self.depositor_nonce,
             expires_at_epoch: self.expires_at_epoch,
             memo_hash: self.memo_hash,
+            settlement_path: self.settlement_path,
         }
     }
 }
@@ -193,6 +196,7 @@ impl EscrowRelease {
             escrow_id: self.escrow_id,
             beneficiary: self.beneficiary,
             release_nonce: self.release_nonce,
+            observed_terms_hash: self.observed_terms_hash,
         }
     }
 }

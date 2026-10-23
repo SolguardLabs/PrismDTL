@@ -1,5 +1,10 @@
 # Política de seguridad
 
+| Versión | Estado de mantenimiento |
+| --- | --- |
+| `2.0.x` | Rama vigente |
+| `1.0.x` | Histórica; sin cambios funcionales nuevos |
+
 Prism DTL es un núcleo de liquidación. Su modelo de seguridad se centra en
 preservar movimientos de valor autorizados, resistencia a repetición,
 derivación determinista de identidades y reconciliación de suministro dentro de
@@ -18,6 +23,9 @@ son correctas.
 ## Límites de confianza
 
 - Las claves de firma se controlan fuera del crate.
+- El alta de programas de rebate y la financiación del bono son operaciones
+  privilegiadas del servicio integrador; el crate no autentica a ese operador
+  de control por sí mismo.
 - Las identidades de cuenta registradas deben corresponder con sus claves
   públicas.
 - Los llamadores pueden enviar envelopes antiguos, malformados, repetidos o de
@@ -47,6 +55,8 @@ flowchart LR
   de memo.
 - Instrucciones de apertura autorizadas por el depositante.
 - Instrucciones de liberación autorizadas por el beneficiario.
+- La autorización de apertura incluye los destinatarios, importes y epoch de
+  la ruta; la autorización de liberación incluye el hash de términos observado.
 - Comprobaciones de nonce del depositante para aperturas de escrow.
 - Comprobaciones de nonce del beneficiario para liberaciones de escrow.
 - Seguimiento de transacciones duplicadas.
@@ -59,6 +69,8 @@ flowchart LR
   `SettlementPath::quote` y nuevamente al liquidar.
 - Snapshot de suministro consultable sin mutar estado para conciliación
   externa.
+- El rebate respaldado por bono se contabiliza aparte del reparto bruto del
+  escrow; la transición candidata se rechaza si el bono no soporta el pago.
 
 ## Invariantes del protocolo
 
@@ -68,12 +80,15 @@ flowchart LR
 - Un escrow no puede liberarse dos veces.
 - Una liberación debe referenciar el hash actual de los términos del escrow.
 - Las comisiones de operador más rebates no deben superar el importe del escrow.
-- Los balances líquidos más el valor de escrow no liberado deben igualar el
-  suministro total.
+- Los balances líquidos, el valor de escrow no liberado y los bonos de operador
+  deben sumar el suministro total.
 - `beneficiary_amount + operator_fee + rebate_amount = gross_amount` para
   cada quote aceptada.
 - Los digests de estado deben cambiar cuando cambia el estado confirmado del
   ledger.
+- `BondedRebatePolicy.maximum_rebate` no puede exceder el bono disponible en
+  el alta. El servicio debe supervisar saldo, epoch y exposición del programa
+  durante todo su ciclo de vida.
 
 ## Requisitos de integración
 
@@ -88,6 +103,9 @@ Los despliegues construidos sobre Prism DTL deberían añadir:
 - Métricas en runtime para suministro total, valor bloqueado, fallos de
   liberación e intentos repetidos.
 - Procedimientos de backup y restauración para snapshots del ledger.
+- Autorización administrativa independiente para `post_operator_bond` y
+  `set_bonded_rebate_policy`, y conciliación entre abonos de rebate y saldo del
+  bono tras cada lote.
 
 No se debe usar la conservación de suministro como sustituto de una revisión
 de destinatarios o de la política comercial de una ruta. Es una propiedad

@@ -1,6 +1,8 @@
 name: release-integrity
 
 on:
+  push:
+    tags: [v2.0.0]
   release:
     types: [published]
   workflow_dispatch:
@@ -22,10 +24,10 @@ jobs:
           git fetch --force origin main production --tags
           main=$(git rev-parse refs/remotes/origin/main)
           production=$(git rev-parse refs/remotes/origin/production)
-          tag=$(git rev-parse 'refs/tags/v1.0.0^{}')
+          tag=$(git rev-parse 'refs/tags/v2.0.0^{}')
           test "$main" = "$production"
           test "$main" = "$tag"
-          test "$(git cat-file -t refs/tags/v1.0.0)" = tag
+          test "$(git cat-file -t refs/tags/v2.0.0)" = tag
           test -s assets/banner.png
           test -s README.md
           test -s SECURITY.md

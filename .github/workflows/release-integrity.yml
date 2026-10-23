@@ -1,6 +1,8 @@
 name: release-integrity
 
 on:
+  push:
+    tags: [v2.0.0]
   release:
     types: [published]
   workflow_dispatch:

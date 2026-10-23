@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
-    AccountId, Amount, AssetId, Digest, EscrowId, PrismError, PrismResult, PublicIdentity,
-    SignedEscrowOpen, SignedEscrowRelease, TxId,
+    AccountId, Amount, AssetId, BondedRebatePolicy, BondedRebateQuote, Digest, EscrowId,
+    PrismError, PrismResult, PublicIdentity, SignedEscrowOpen, SignedEscrowRelease, TxId,
+    quote_bonded_rebate,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -38,6 +39,15 @@ pub enum JournalOp {
         escrow_id: EscrowId,
         amount: Amount,
     },
+    OperatorBondPosted {
+        account: AccountId,
+        amount: Amount,
+    },
+    BondedRebatePaid {
+        account: AccountId,
+        escrow_id: EscrowId,
+        amount: Amount,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -50,6 +60,7 @@ pub struct JournalEntry {
 pub struct SupplySnapshot {
     pub liquid: Amount,
     pub locked: Amount,
+    pub bonded: Amount,
     pub total: Amount,
     pub open_escrows: usize,
     pub released_escrows: usize,
@@ -64,6 +75,8 @@ pub struct PrismLedger {
     seen_transactions: BTreeSet<TxId>,
     total_supply: Amount,
     journal: Vec<JournalEntry>,
+    operator_bonds: BTreeMap<AccountId, Amount>,
+    rebate_policies: BTreeMap<AccountId, BondedRebatePolicy>,
 }
 
 impl PrismLedger {
@@ -76,6 +89,8 @@ impl PrismLedger {
             seen_transactions: BTreeSet::new(),
             total_supply: Amount::zero(),
             journal: Vec::new(),
+            operator_bonds: BTreeMap::new(),
+            rebate_policies: BTreeMap::new(),
         }
     }
 
@@ -147,6 +162,92 @@ impl PrismLedger {
         self.total_supply
     }
 
+    pub fn operator_bond_of(&self, operator: AccountId) -> PrismResult<Amount> {
+        self.ensure_account(operator)?;
+        Ok(*self
+            .operator_bonds
+            .get(&operator)
+            .unwrap_or(&Amount::zero()))
+    }
+
+    pub fn post_operator_bond(&mut self, operator: AccountId, amount: Amount) -> PrismResult<()> {
+        if amount.is_zero() {
+            return Err(PrismError::ZeroAmount);
+        }
+        let mut candidate = self.clone();
+        let liquid = candidate.balance_of(operator)?;
+        let next_liquid =
+            liquid
+                .checked_sub(amount)
+                .map_err(|_| PrismError::InsufficientFunds {
+                    account: operator,
+                    available: liquid,
+                    required: amount,
+                })?;
+        candidate
+            .accounts
+            .get_mut(&operator)
+            .ok_or(PrismError::AccountNotFound(operator))?
+            .balance = next_liquid;
+        let next_bond = candidate.operator_bond_of(operator)?.checked_add(amount)?;
+        candidate.operator_bonds.insert(operator, next_bond);
+        let tx_id = TxId::from_serializable(
+            "prism-operator-bond-v1",
+            &(operator, amount, candidate.journal.len()),
+        )?;
+        candidate.journal.push(JournalEntry {
+            tx_id,
+            op: JournalOp::OperatorBondPosted {
+                account: operator,
+                amount,
+            },
+        });
+        candidate.verify_conservation()?;
+        *self = candidate;
+        Ok(())
+    }
+
+    pub fn set_bonded_rebate_policy(
+        &mut self,
+        operator: AccountId,
+        policy: BondedRebatePolicy,
+    ) -> PrismResult<()> {
+        let bond = self.operator_bond_of(operator)?;
+        if policy.maximum_rebate.is_zero() || policy.maximum_rebate > bond {
+            return Err(PrismError::Policy(
+                "rebate policy must be covered by operator bond".to_owned(),
+            ));
+        }
+        self.rebate_policies.insert(operator, policy);
+        Ok(())
+    }
+
+    pub fn bonded_rebate_quote(
+        &self,
+        escrow_id: EscrowId,
+    ) -> PrismResult<Option<BondedRebateQuote>> {
+        let escrow = self.escrow(escrow_id)?;
+        if escrow.released {
+            return Err(PrismError::EscrowReleased(escrow_id));
+        }
+        let path = escrow.terms.settlement_path;
+        let Some(policy) = self.rebate_policies.get(&path.operator).copied() else {
+            return Ok(None);
+        };
+        if policy.routing_epoch != path.routing_epoch {
+            return Ok(None);
+        }
+        // Provisional route depth includes the currently locked settlement slice.
+        let eligible_depth = self
+            .operator_bond_of(path.operator)?
+            .checked_add(escrow.terms.amount)?;
+        Ok(Some(quote_bonded_rebate(
+            policy,
+            eligible_depth,
+            escrow.terms.amount,
+        )?))
+    }
+
     pub fn supply_snapshot(&self) -> PrismResult<SupplySnapshot> {
         let mut liquid = Amount::zero();
         for account in self.accounts.values() {
@@ -165,9 +266,16 @@ impl PrismLedger {
             }
         }
 
+        let mut bonded = Amount::zero();
+        for bond in self.operator_bonds.values() {
+            bonded = bonded.checked_add(*bond)?;
+        }
+        locked = locked.checked_add(bonded)?;
+
         Ok(SupplySnapshot {
             liquid,
             locked,
+            bonded,
             total: self.total_supply,
             open_escrows,
             released_escrows,
@@ -205,6 +313,8 @@ impl PrismLedger {
                 &self.accounts,
                 &self.escrows,
                 &self.seen_transactions,
+                &self.operator_bonds,
+                &self.rebate_policies,
                 self.total_supply,
             ),
         )
@@ -334,10 +444,25 @@ impl PrismLedger {
         let path = escrow.terms.settlement_path;
         let quote = path.quote(escrow.terms.amount)?;
         let rebate_recipient = path.rebate_recipient.unwrap_or(escrow.terms.beneficiary);
+        let bonded_rebate = self.bonded_rebate_quote(escrow.id)?;
 
         self.credit(escrow.terms.beneficiary, quote.beneficiary_amount)?;
         self.credit(path.operator, quote.operator_fee)?;
         self.credit(rebate_recipient, quote.rebate_amount)?;
+        if let Some(rebate_quote) = bonded_rebate {
+            let current_bond = self.operator_bond_of(path.operator)?;
+            let next_bond = current_bond.checked_sub(rebate_quote.rebate)?;
+            self.operator_bonds.insert(path.operator, next_bond);
+            self.credit(rebate_recipient, rebate_quote.rebate)?;
+            self.journal.push(JournalEntry {
+                tx_id,
+                op: JournalOp::BondedRebatePaid {
+                    account: rebate_recipient,
+                    escrow_id: escrow.id,
+                    amount: rebate_quote.rebate,
+                },
+            });
+        }
 
         self.escrows
             .get_mut(&escrow.id)
@@ -389,6 +514,10 @@ impl PrismLedger {
             if !escrow.released {
                 locked = locked.checked_add(escrow.terms.amount)?;
             }
+        }
+
+        for bond in self.operator_bonds.values() {
+            locked = locked.checked_add(*bond)?;
         }
 
         let observed = liquid.checked_add(locked)?;

@@ -25,7 +25,9 @@ flowchart TB
 - **Secuenciador:** serializar las mutaciones de una misma instancia de ledger
   y conservar el orden aplicado para recuperación determinista.
 - **Ledger:** verificar identidad, firmas, nonces, activo, red, cuentas
-  registradas, presupuesto de ruta y conservación.
+  registradas, presupuesto de ruta, bono y conservación.
+- **Plano de control:** autorizar por separado financiación de bonos y cambios
+  de política por operador y epoch; conservar aprobación y digest anterior.
 - **Persistencia:** commit atómico de estado y diario, backups probados y
   comparación periódica de digests.
 
@@ -37,6 +39,9 @@ Por eso las alertas de conciliación deben incluir distribución por cuenta y
 por ruta, además de la suma global. Ante discrepancia, inmovilizar la admisión,
 preservar envelopes y firmas originales, reconstruir los estados previo y
 posterior y escalar la decisión de reapertura a una persona responsable.
+Los rebates respaldados requieren además cotejar saldo del bono antes/después
+y abonos efectivos al destinatario. Un `SupplySnapshot` equilibrado no
+demuestra por sí solo que el incentivo siga la política comercial aprobada.
 
 Consultar también [SECURITY.md](../SECURITY.md) para el alcance del reporte
 privado de seguridad y la política de dependencias.

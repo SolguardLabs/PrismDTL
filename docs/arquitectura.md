@@ -14,6 +14,7 @@ flowchart TB
     end
     C --> L[ledger: estado candidato]
     E --> L
+    B[rebate: curva de profundidad] --> L
     A[amount: enteros acotados] --> L
     I[ids: digests por dominio] --> L
     L --> J[Diario y digest de estado]
@@ -36,6 +37,17 @@ apertura pertenece al depositante; el de liberación, al beneficiario. Un
 `TxId` identifica el envelope procesado y el digest de estado permite a una
 capa superior comparar réplicas.
 
+## Bono y política de ruta
+
+`post_operator_bond` mueve saldo líquido del operador a una reserva
+inmovilizada. `set_bonded_rebate_policy` registra máximo y epoch para ese
+operador una vez existe cobertura inicial. Durante una liberación compatible,
+`bonded_rebate_quote` calcula el incentivo; el ledger debita el bono, acredita
+al destinatario de la ruta y registra una entrada específica en el diario.
+Esta transición forma parte del mismo candidato atómico que el pago del
+escrow. `SupplySnapshot` distingue `bonded` del valor de escrows abiertos,
+aunque ambos figuran en `locked`.
+
 ## Fronteras de atomicidad
 
 `open_escrow` y `release_escrow` clonan el estado en un candidato, aplican la
@@ -50,9 +62,11 @@ fallo de proceso.
 - `SettlementPath::quote(amount)` calcula la distribución bruta y neta sin
   alterar saldos. Rechaza cargos superiores al importe bruto.
 - `supply_snapshot()` devuelve saldo líquido, saldo bloqueado, suministro
-  declarado y número de escrows abiertos/liberados.
+  declarado, reserva `bonded` y número de escrows abiertos/liberados.
+- `bonded_rebate_quote(escrow_id)` devuelve la profundidad, el ratio en puntos
+  básicos y el rebate previsto, o `None` si no hay política del epoch.
 - `state_digest()` compromete cuentas, escrows, transacciones vistas y
-  suministro. El diario no se incluye en ese digest; debe protegerse y
+  suministro, bonos y políticas. El diario no se incluye en ese digest; debe protegerse y
   archivarse por separado en la capa de persistencia.
 
 Las vistas son herramientas de conciliación, no sustitutos de la verificación

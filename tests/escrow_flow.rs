@@ -234,6 +234,40 @@ fn tampered_amount_rejects_open_signature() {
 }
 
 #[test]
+fn tampered_settlement_path_rejects_open_signature() {
+    let mut fx = settlement_environment(1_000);
+    let mut terms = open_terms(&fx, 250, 10);
+    let open = SignedEscrowOpen::sign(terms, &fx.depositor).unwrap();
+    terms.settlement_path.operator_fee = Amount::new(200).unwrap();
+    let tampered = SignedEscrowOpen { terms, ..open };
+    assert_eq!(
+        fx.ledger.open_escrow(&tampered),
+        Err(PrismError::InvalidSignature)
+    );
+}
+
+#[test]
+fn tampered_observed_hash_rejects_release_signature() {
+    let mut fx = settlement_environment(1_000);
+    let open = SignedEscrowOpen::sign(open_terms(&fx, 250, 10), &fx.depositor).unwrap();
+    fx.ledger.open_escrow(&open).unwrap();
+    let release = EscrowRelease::new(
+        fx.network_id,
+        open.terms.escrow_id,
+        fx.beneficiary.public_identity().account,
+        0,
+        open.terms.terms_hash().unwrap(),
+    );
+    let signed = SignedEscrowRelease::sign(release, &fx.beneficiary).unwrap();
+    let mut tampered = signed.clone();
+    tampered.release.observed_terms_hash = Digest::zero();
+    assert_eq!(
+        fx.ledger.release_escrow(&tampered),
+        Err(PrismError::InvalidSignature)
+    );
+}
+
+#[test]
 fn replayed_release_is_rejected() {
     let mut fx = settlement_environment(1_000);
     let terms = open_terms(&fx, 250, 10);

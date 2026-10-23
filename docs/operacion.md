@@ -10,7 +10,8 @@ estado, no un servicio desplegable ni una red de consenso.
 | --- | --- | --- |
 | `prism_supply_total` | `supply_snapshot.total` | Suministro declarado |
 | `prism_supply_liquid` | `supply_snapshot.liquid` | Saldos de cuentas |
-| `prism_escrow_locked` | `supply_snapshot.locked` | Obligación pendiente |
+| `prism_value_locked` | `supply_snapshot.locked` | Escrows y bonos inmovilizados |
+| `prism_operator_bonded` | `supply_snapshot.bonded` | Cobertura de programas por operador |
 | `prism_escrow_open` | `open_escrows` | Escrows activos |
 | `prism_escrow_released` | `released_escrows` | Historial liquidado |
 | `prism_transition_rejected_total` | Errores tipados | Rechazos por causa |
@@ -20,6 +21,10 @@ cualquier divergencia, cambio inesperado de suministro o secuencia de nonces
 que no corresponda al diario. El crecimiento de rechazos de firma o de
 transacción duplicada puede reflejar integración defectuosa o abuso de la API;
 no prueba por sí solo un incidente.
+Para cada programa de rebate, registrar epoch, cotización previa, abono
+confirmado, saldo del bono y destinatario. Conciliar el débito del bono con
+`JournalOp::BondedRebatePaid` en el mismo lote; el máximo de política es un
+límite de cotización, no un sustituto del saldo efectivo.
 
 ## Recuperación
 

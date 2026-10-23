@@ -10,6 +10,9 @@ la persistencia. La API no abre sockets ni envía transacciones a una red.
 2. Registrar cada `PublicIdentity`; la cuenta debe derivarse de su clave.
 3. Aplicar créditos génesis solo mediante un proceso de arranque autorizado.
 4. Persistir un snapshot y el diario con una frontera de commit común.
+5. Si se utiliza un programa respaldado, depositar el bono del operador y
+   establecer una `BondedRebatePolicy` para el epoch operativo. Estas dos
+   llamadas pertenecen al plano de control privilegiado del integrador.
 
 ## Apertura
 
@@ -19,6 +22,8 @@ beneficiario, memo y ruta. Antes de presentar el envelope, puede obtener
 `SignedEscrowOpen::sign` requiere la clave del depositante. El servicio invoca
 `open_escrow`; un resultado exitoso devuelve `TxId` y cambia el estado
 atómicamente en memoria.
+La firma cubre todos los campos de `settlement_path`; cualquier cambio en
+destinatarios, importes o epoch exige una nueva firma del depositante.
 
 ```rust
 let quote = terms.settlement_path.quote(terms.amount)?;
@@ -37,6 +42,10 @@ El beneficiario consulta el escrow admitido y su `terms_hash`, obtiene su
 red, estado, nonce y hash observado antes de aplicar los abonos. Una respuesta
 `TermsHashMismatch` requiere refrescar la vista y revisar los términos
 observados; no se debe reintentar ciegamente con un hash nuevo.
+La firma del beneficiario cubre también `observed_terms_hash`. Antes de
+mostrar el importe final, el integrador puede consultar
+`bonded_rebate_quote(escrow_id)`; `None` indica que no hay programa para la
+ruta y epoch actuales. El resultado es una vista, no una reserva de fondos.
 
 ```mermaid
 sequenceDiagram

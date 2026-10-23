@@ -1,6 +1,6 @@
 {
     "name": "prism-dtl",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "private": true,
     "type": "module",
     "description": "Tests de integración JavaScript/Bun para el núcleo de liquidación Prism DTL.",
